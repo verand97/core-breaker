@@ -109,6 +109,81 @@ export default function App() {
   const [welcomeFrame, setWelcomeFrame]         = useState(0);
   const [showControlsModal, setShowControlsModal] = useState(false);
 
+  // ─── Heavy Preload After Start Game ───
+  useEffect(() => {
+    if (gameState !== 'LOADING_LEVEL') return;
+
+    const preloadGameAssets = async () => {
+      const imagesToLoad = [];
+      
+      // 1. Player animations
+      const playerAnims = { idle: 6, run: 8, jump: 4, fall: 4, dash: 4, shoot: 4, laser: 4, land: 3, hit: 2 };
+      for (const [anim, frames] of Object.entries(playerAnims)) {
+        for (let i = 0; i < frames; i++) {
+          imagesToLoad.push(`/assets/boss_level1/player/${anim}/${String(i).padStart(3, '0')}.png`);
+        }
+      }
+
+      // 2. Boss 1 animations
+      const boss1Anims = { idle: 6, march: 8, slamepreap: 6, slamedown: 4, recover: 6, drillcharge: 6, drillrush: 4, hitdmg: 2, defeated: 8 };
+      for (const [anim, frames] of Object.entries(boss1Anims)) {
+        for (let i = 0; i < frames; i++) {
+          imagesToLoad.push(`/assets/boss_level1/boss_iron_crusher/${anim}/${String(i).padStart(3, '0')}.png`);
+        }
+      }
+      
+      // 3. Boss 2 (Voltage Queen) animations
+      const boss2Anims = { floatidle: 8, hit_damage: 2, laser: 6, shileld_broken: 4, defeated: 8 };
+      for (const [anim, frames] of Object.entries(boss2Anims)) {
+        for (let i = 0; i < frames; i++) {
+          imagesToLoad.push(`/assets/boss_level2/boss_voltage_queen/${anim}/${String(i).padStart(3, '0')}.png`);
+        }
+      }
+
+      // 4. Shield Drones (Level 2)
+      for (let i = 0; i < 8; i++) {
+        imagesToLoad.push(`/assets/boss_level2/drone/00${i}.png`);
+      }
+
+      // 5. Environments, VFX, and UI (Level 1 & Level 2)
+      const staticAssets = [
+        '/assets/boss_level1/background/bg_scrapyard.png',
+        '/assets/boss_level1/floor/floor_scrapyard.png',
+        '/assets/boss_level1/platform/platform_scrap.png',
+        '/assets/boss_level1/ui/hud_player_portrait_frame.jpg',
+        '/assets/boss_level2/background/bg_neon_lab.png',
+        '/assets/boss_level2/platform/platform_glass.png',
+        '/assets/boss_level2/ui/hud_boss_level2_panel_new.png',
+        '/assets/boss_level2/fx/fx_overload_cell.png',
+        '/assets/boss_level2/fx/fx_queen_shield_aura.png',
+        '/assets/boss_level2/fx/fx_shield_block.png',
+        '/assets/boss_level2/fx/fx_drone_explosion.png',
+        '/assets/boss_level2/fx/fx_emp_blast.png',
+        '/assets/boss_level2/fx/fx_electric_spark.png',
+        '/assets/boss_level1/transition/bg_corridor.png',
+        '/assets/boss_level1/transition/floor_corridor.png',
+        '/assets/boss_level1/transition/portal_nextstage.png'
+      ];
+      imagesToLoad.push(...staticAssets);
+
+      const promises = imagesToLoad.map(src => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = resolve;
+          img.onerror = resolve; // proceed anyway
+          img.src = src;
+        });
+      });
+
+      await Promise.all(promises);
+      
+      // Small delay for smooth transition
+      setTimeout(() => setGameState('PLAYING'), 300);
+    };
+
+    preloadGameAssets();
+  }, [gameState]);
+
   useEffect(() => {
     if (gameState !== 'MENU') return;
     const interval = setInterval(() => {
@@ -150,7 +225,7 @@ export default function App() {
   }, [gameState]);
 
   const toggleMute = () => { const m = !isMuted; setIsMuted(m); audioSynth.setMute(m); };
-  const startGame  = () => { audioSynth.resume(); setPaused(false); setGameState('PLAYING'); };
+  const startGame  = () => { audioSynth.resume(); setPaused(false); setGameState('LOADING_LEVEL'); };
   const si = (k, v) => engineRef.current && engineRef.current.setTouchInput(k, v);
 
   const togglePause = () => {
@@ -195,6 +270,16 @@ export default function App() {
       <div className="game-container">
         <div className="scanlines" />
         <div className="vignette" />
+
+        {/* ── LOADING SCREEN (After Tap to Start) ── */}
+        {gameState === 'LOADING_LEVEL' && (
+          <div className="screen-overlay flex flex-col justify-center items-center text-center z-[200]" style={{ backgroundColor: '#000' }}>
+            <div className="animate-spin mb-6" style={{ width: '40px', height: '40px', border: '3px solid transparent', borderTopColor: '#00ffff', borderBottomColor: '#ff007f', borderRadius: '50%' }} />
+            <div className="hud-font font-bold text-[#00ffff] text-[12px] tracking-[0.3em] animate-pulse">
+              LOADING COMBAT ASSETS...
+            </div>
+          </div>
+        )}
 
         {/* ── MENU ── */}
         {gameState === 'MENU' && (
@@ -280,15 +365,15 @@ export default function App() {
         {gameState === 'GAMEOVER' && (
           <div className="screen-overlay flex flex-col justify-center items-center text-center" style={{ backgroundColor: 'rgba(10, 0, 0, 0.95)', zIndex: 100 }}>
             {/* Title Section */}
-            <div style={{ position: 'relative', marginBottom: '40px' }}>
-              <h2 className="hud-font font-black" style={{ fontSize: '4rem', color: '#ff3b30', letterSpacing: '0.2em', textShadow: '0 0 20px rgba(255,59,48,0.8), 0 0 40px rgba(255,59,48,0.4)', margin: '0 0 10px 0' }}>
+            <div style={{ position: 'relative', marginBottom: '2vh' }}>
+              <h2 className="hud-font font-black" style={{ fontSize: 'clamp(2rem, 10vh, 4rem)', color: '#ff3b30', letterSpacing: '0.2em', textShadow: '0 0 20px rgba(255,59,48,0.8), 0 0 40px rgba(255,59,48,0.4)', margin: '0 0 10px 0' }}>
                 CRITICAL FAILURE
               </h2>
               <div style={{ height: '4px', width: '100%', backgroundColor: '#ff3b30', opacity: 0.8, boxShadow: '0 0 15px #ff3b30' }} />
             </div>
 
             {/* Readout Panel */}
-            <div style={{ width: '500px', backgroundColor: 'rgba(20, 2, 2, 0.9)', border: '1px solid rgba(255,59,48,0.5)', padding: '24px', position: 'relative', boxShadow: 'inset 0 0 40px rgba(255,59,48,0.15), 0 0 20px rgba(255,59,48,0.2)' }}>
+            <div style={{ width: '90%', maxWidth: '500px', backgroundColor: 'rgba(20, 2, 2, 0.9)', border: '1px solid rgba(255,59,48,0.5)', padding: '4vh 24px', position: 'relative', boxShadow: 'inset 0 0 40px rgba(255,59,48,0.15), 0 0 20px rgba(255,59,48,0.2)' }}>
               {/* Corner Accents */}
               <div style={{ position: 'absolute', top: 0, left: 0, width: '15px', height: '15px', borderTop: '3px solid #ff3b30', borderLeft: '3px solid #ff3b30' }} />
               <div style={{ position: 'absolute', top: 0, right: 0, width: '15px', height: '15px', borderTop: '3px solid #ff3b30', borderRight: '3px solid #ff3b30' }} />
@@ -322,7 +407,7 @@ export default function App() {
             </div>
 
             {/* Action Button */}
-            <button onClick={startGame} className="cyber-btn cyber-btn-magenta flex items-center gap-3" style={{ padding: '16px 32px', marginTop: '32px', letterSpacing: '2px' }}>
+            <button onClick={startGame} className="cyber-btn cyber-btn-magenta flex items-center gap-3" style={{ padding: '2vh 32px', marginTop: '3vh', letterSpacing: '2px' }}>
               <RefreshCw size={20} /> INITIALIZE REBOOT
             </button>
           </div>
@@ -332,15 +417,15 @@ export default function App() {
         {gameState === 'VICTORY' && (
           <div className="screen-overlay flex flex-col justify-center items-center text-center" style={{ backgroundColor: 'rgba(0, 8, 12, 0.95)', zIndex: 100 }}>
             {/* Title Section */}
-            <div style={{ position: 'relative', marginBottom: '40px' }}>
-              <h2 className="hud-font font-black" style={{ fontSize: '4rem', color: '#00ffff', letterSpacing: '0.2em', textShadow: '0 0 20px rgba(0,255,255,0.8), 0 0 40px rgba(0,255,255,0.4)', margin: '0 0 10px 0' }}>
+            <div style={{ position: 'relative', marginBottom: '2vh' }}>
+              <h2 className="hud-font font-black" style={{ fontSize: 'clamp(2rem, 10vh, 4rem)', color: '#00ffff', letterSpacing: '0.2em', textShadow: '0 0 20px rgba(0,255,255,0.8), 0 0 40px rgba(0,255,255,0.4)', margin: '0 0 10px 0' }}>
                 SYSTEM OVERRIDE
               </h2>
               <div style={{ height: '4px', width: '100%', backgroundColor: '#00ffff', opacity: 0.8, boxShadow: '0 0 15px #00ffff' }} />
             </div>
 
             {/* Readout Panel */}
-            <div style={{ width: '500px', backgroundColor: 'rgba(2, 16, 20, 0.9)', border: '1px solid rgba(0,255,255,0.5)', padding: '24px', position: 'relative', boxShadow: 'inset 0 0 40px rgba(0,255,255,0.15), 0 0 20px rgba(0,255,255,0.2)' }}>
+            <div style={{ width: '90%', maxWidth: '500px', backgroundColor: 'rgba(2, 16, 20, 0.9)', border: '1px solid rgba(0,255,255,0.5)', padding: '4vh 24px', position: 'relative', boxShadow: 'inset 0 0 40px rgba(0,255,255,0.15), 0 0 20px rgba(0,255,255,0.2)' }}>
               {/* Corner Accents */}
               <div style={{ position: 'absolute', top: 0, left: 0, width: '15px', height: '15px', borderTop: '3px solid #00ffff', borderLeft: '3px solid #00ffff' }} />
               <div style={{ position: 'absolute', top: 0, right: 0, width: '15px', height: '15px', borderTop: '3px solid #00ffff', borderRight: '3px solid #00ffff' }} />
@@ -374,7 +459,7 @@ export default function App() {
             </div>
 
             {/* Action Button */}
-            <button onClick={() => setGameState('MENU')} className="cyber-btn flex items-center gap-3" style={{ padding: '16px 32px', marginTop: '32px', letterSpacing: '2px' }}>
+            <button onClick={() => setGameState('MENU')} className="cyber-btn flex items-center gap-3" style={{ padding: '2vh 32px', marginTop: '3vh', letterSpacing: '2px' }}>
               <RefreshCw size={20} /> DISCONNECT
             </button>
           </div>
@@ -384,14 +469,14 @@ export default function App() {
         {paused && gameState === 'PLAYING' && (
           <div className="screen-overlay flex flex-col items-center justify-center text-center" style={{ backgroundColor: 'rgba(0, 5, 10, 0.85)', backdropFilter: 'blur(8px)', zIndex: 100 }}>
             
-            <div style={{ backgroundColor: 'rgba(2, 10, 16, 0.95)', border: '1px solid rgba(0,255,255,0.4)', padding: '40px', position: 'relative', boxShadow: 'inset 0 0 30px rgba(0,255,255,0.1), 0 0 20px rgba(0,255,255,0.2)' }}>
+            <div style={{ width: '90%', maxWidth: '500px', backgroundColor: 'rgba(2, 10, 16, 0.95)', border: '1px solid rgba(0,255,255,0.4)', padding: '5vh 5vw', position: 'relative', boxShadow: 'inset 0 0 30px rgba(0,255,255,0.1), 0 0 20px rgba(0,255,255,0.2)' }}>
               {/* Corner Accents */}
               <div style={{ position: 'absolute', top: 0, left: 0, width: '15px', height: '15px', borderTop: '3px solid #00ffff', borderLeft: '3px solid #00ffff' }} />
               <div style={{ position: 'absolute', top: 0, right: 0, width: '15px', height: '15px', borderTop: '3px solid #00ffff', borderRight: '3px solid #00ffff' }} />
               <div style={{ position: 'absolute', bottom: 0, left: 0, width: '15px', height: '15px', borderBottom: '3px solid #00ffff', borderLeft: '3px solid #00ffff' }} />
               <div style={{ position: 'absolute', bottom: 0, right: 0, width: '15px', height: '15px', borderBottom: '3px solid #00ffff', borderRight: '3px solid #00ffff' }} />
               
-              <h2 className="hud-font font-black" style={{ fontSize: '3rem', color: '#00ffff', letterSpacing: '0.25em', textShadow: '0 0 15px rgba(0,255,255,0.8)', marginBottom: '32px' }}>
+              <h2 className="hud-font font-black" style={{ fontSize: 'clamp(2rem, 8vh, 3rem)', color: '#00ffff', letterSpacing: '0.25em', textShadow: '0 0 15px rgba(0,255,255,0.8)', marginBottom: '4vh' }}>
                 SYSTEM PAUSED
               </h2>
               
